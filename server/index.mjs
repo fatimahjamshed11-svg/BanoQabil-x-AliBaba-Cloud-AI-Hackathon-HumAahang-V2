@@ -8,7 +8,9 @@ try {
   // Public mode runs behind the hosting platform's HTTPS/WSS terminator.
   app.server.listen(config.port, config.host, () => {
     console.log(`Hum Ahang STT backend: ${config.publicUrl ?? `http://127.0.0.1:${config.port}`}`);
-    console.log(`Caption recognition: ${config.sttProvider}${config.sttProvider === 'openai' ? ` (${config.openaiSttModel})` : ' (nova-3)'}. Translation and photo models are unchanged.`);
+    const model = config.sttProvider === 'openai' ? config.openaiSttModel
+      : config.sttProvider === 'elevenlabs' ? config.elevenlabsSttModel : 'nova-3';
+    console.log(`Caption recognition: ${config.sttProvider} (${model}). Translation and photo models are unchanged.`);
     if (config.deployment === 'public') {
       console.log('Public demo: generate a connection code from an operator terminal using STT_PAIR_URL and npm run backend:pair.');
     } else {

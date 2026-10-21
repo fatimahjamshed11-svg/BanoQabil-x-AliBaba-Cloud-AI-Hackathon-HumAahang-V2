@@ -10,8 +10,9 @@ export function requireHttpsOrigin(value, name) {
 
 export function readConfig(env = process.env) {
   const sttProvider = env.STT_PROVIDER ?? 'openai';
-  if (!['openai', 'deepgram'].includes(sttProvider)) throw new Error('STT_PROVIDER must be openai or deepgram.');
-  const required = new Set([sttProvider === 'openai' ? 'OPENAI_API_KEY' : 'DEEPGRAM_API_KEY', 'OPENAI_API_KEY', 'STT_CLIENT_TOKEN']);
+  if (!['openai', 'deepgram', 'elevenlabs'].includes(sttProvider)) throw new Error('STT_PROVIDER must be openai, deepgram or elevenlabs.');
+  const selectedSttKey = sttProvider === 'openai' ? 'OPENAI_API_KEY' : sttProvider === 'deepgram' ? 'DEEPGRAM_API_KEY' : 'ELEVENLABS_API_KEY';
+  const required = new Set([selectedSttKey, 'OPENAI_API_KEY', 'STT_CLIENT_TOKEN']);
   for (const name of required) {
     const value = env[name];
     if (!value || value.length < 20 || value.length > 512 || /\s/u.test(value) || /replace|your[_-]|example/i.test(value)) {
@@ -51,6 +52,10 @@ export function readConfig(env = process.env) {
   // different session contracts must not be selected by an unchecked env value.
   const openaiSttModel = env.OPENAI_STT_MODEL ?? 'gpt-4o-transcribe';
   if (!['gpt-4o-transcribe', 'gpt-4o-mini-transcribe'].includes(openaiSttModel)) throw new Error('Invalid OPENAI_STT_MODEL.');
+  const elevenlabsSttModel = env.ELEVENLABS_STT_MODEL ?? 'scribe_v2_realtime';
+  if (elevenlabsSttModel !== 'scribe_v2_realtime') throw new Error('Invalid ELEVENLABS_STT_MODEL.');
+  const elevenlabsTtsModel = env.ELEVENLABS_TTS_MODEL ?? 'eleven_v4';
+  if (!/^[a-z0-9_.-]{1,80}$/u.test(elevenlabsTtsModel)) throw new Error('Invalid ELEVENLABS_TTS_MODEL.');
   const judgeAccessKey = env.JUDGE_ACCESS_KEY || undefined;
   const judgeDeadline = env.JUDGE_ACCESS_EXPIRES_AT || undefined;
   let judgeAccessExpiresAt;
@@ -70,6 +75,7 @@ export function readConfig(env = process.env) {
   return { port, origins, deployment, localDemoMode, host: isPublic ? '0.0.0.0' : '127.0.0.1',
     publicUrl: publicEndpoint?.origin, publicHost: publicEndpoint?.host, webRoot,
     clientToken: env.STT_CLIENT_TOKEN, sttProvider, openaiSttModel, deepgramKey: env.DEEPGRAM_API_KEY,
+    elevenlabsKey: env.ELEVENLABS_API_KEY, elevenlabsSttModel, elevenlabsTtsModel,
     openaiTextModel, conversionTimeoutMs: 12000,
     openaiKey, openaiVisionModel, pslSignCatalog, visionTimeoutMs: 25000, judgeAccessKey, judgeAccessExpiresAt };
 }

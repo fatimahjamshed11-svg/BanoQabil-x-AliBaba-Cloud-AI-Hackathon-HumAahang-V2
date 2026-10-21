@@ -4,6 +4,7 @@ import { WebSocketServer } from 'ws';
 import { validateAudio } from './config.mjs';
 import { createConverter, createBilingualProcessor, connectDeepgram } from './providers.mjs';
 import { connectOpenAI } from './openai-stt.mjs';
+import { connectElevenLabs } from './elevenlabs-stt.mjs';
 import { runStream } from './stream.mjs';
 import { createClientAccess } from './client-access.mjs';
 import { createStaticWebHandler } from './static-web.mjs';
@@ -22,7 +23,9 @@ export function createSpeechServer(config, dependencies = {}) {
   const maxSessions = config.maxSessions ?? 3, ticketTtlMs = config.ticketTtlMs ?? 30000;
   const convert = dependencies.convert ?? createConverter(config);
   const connect = dependencies.connect ?? ((audio, inputLanguage) => config.sttProvider === 'deepgram'
-    ? connectDeepgram(config, audio, inputLanguage) : connectOpenAI(config, audio, inputLanguage));
+    ? connectDeepgram(config, audio, inputLanguage)
+    : config.sttProvider === 'elevenlabs' ? connectElevenLabs(config, audio, inputLanguage)
+    : connectOpenAI(config, audio, inputLanguage));
   const processBilingual = dependencies.processBilingual ?? createBilingualProcessor(config);
   const analyzeVision = dependencies.analyzeVision ?? createVisionAnalyzer(config, dependencies.visionFetch);
   const translateVision = dependencies.translateVision ?? createVisionTranslator(config, dependencies.visionFetch);

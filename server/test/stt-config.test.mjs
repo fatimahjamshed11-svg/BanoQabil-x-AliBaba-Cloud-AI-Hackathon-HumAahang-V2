@@ -24,10 +24,21 @@ test('Deepgram rollback remains explicit but OpenAI is still required for AI fea
   assert.throws(() => readConfig({ ...env, STT_PROVIDER: 'deepgram', OPENAI_API_KEY: undefined, DEEPGRAM_API_KEY: 'd'.repeat(32) }), /OPENAI_API_KEY/);
 });
 
+test('ElevenLabs is opt-in for realtime speech while OpenAI remains required for AI features', () => {
+  const config = readConfig({ ...env, STT_PROVIDER: 'elevenlabs', ELEVENLABS_API_KEY: 'e'.repeat(32) });
+  assert.equal(config.sttProvider, 'elevenlabs');
+  assert.equal(config.elevenlabsSttModel, 'scribe_v2_realtime');
+  assert.equal(config.elevenlabsKey, 'e'.repeat(32));
+  assert.equal(config.openaiKey, env.OPENAI_API_KEY);
+  assert.throws(() => readConfig({ ...env, STT_PROVIDER: 'elevenlabs' }), /ELEVENLABS_API_KEY/);
+  assert.throws(() => readConfig({ ...env, STT_PROVIDER: 'elevenlabs', ELEVENLABS_API_KEY: 'e'.repeat(32), OPENAI_API_KEY: undefined }), /OPENAI_API_KEY/);
+});
+
 test('invalid provider/model and missing OpenAI or selected speech credentials fail closed', () => {
   assert.throws(() => readConfig({ ...env, STT_PROVIDER: 'automatic' }), /STT_PROVIDER/);
   assert.throws(() => readConfig({ ...env, OPENAI_STT_MODEL: 'gpt-live-transcribe' }), /OPENAI_STT_MODEL/);
   assert.throws(() => readConfig({ ...env, OPENAI_STT_MODEL: 'https://other.test' }), /OPENAI_STT_MODEL/);
   assert.throws(() => readConfig({ ...env, OPENAI_TEXT_MODEL: 'https://other.test' }), /OPENAI_TEXT_MODEL/);
+  assert.throws(() => readConfig({ ...env, STT_PROVIDER: 'elevenlabs', ELEVENLABS_API_KEY: 'e'.repeat(32), ELEVENLABS_STT_MODEL: 'scribe_v1' }), /ELEVENLABS_STT_MODEL/);
   assert.throws(() => readConfig({ ...env, OPENAI_API_KEY: undefined, DEEPGRAM_API_KEY: 'd'.repeat(32) }), /OPENAI_API_KEY/);
 });
