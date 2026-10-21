@@ -1,0 +1,33 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { readConfig } from '../config.mjs';
+
+const env = { OPENAI_API_KEY: 'a'.repeat(32), STT_CLIENT_TOKEN: 'c'.repeat(32) };
+
+test('OpenAI is the default provider for speech, text translation and Vision', () => {
+  const config = readConfig(env);
+  assert.equal(config.sttProvider, 'openai');
+  assert.equal(config.openaiSttModel, 'gpt-4o-transcribe');
+  assert.equal(config.openaiTextModel, 'gpt-4.1-mini');
+  assert.equal(config.openaiVisionModel, 'gpt-4.1-mini');
+  assert.equal(config.deepgramKey, undefined);
+  assert.equal(config.openaiKey, env.OPENAI_API_KEY);
+  assert.equal(readConfig({ ...env, OPENAI_STT_MODEL: 'gpt-4o-mini-transcribe' }).openaiSttModel, 'gpt-4o-mini-transcribe');
+});
+
+test('Deepgram rollback remains explicit but OpenAI is still required for AI features', () => {
+  const config = readConfig({ ...env, STT_PROVIDER: 'deepgram', DEEPGRAM_API_KEY: 'd'.repeat(32) });
+  assert.equal(config.sttProvider, 'deepgram');
+  assert.equal(config.openaiKey, env.OPENAI_API_KEY);
+  assert.equal(config.deepgramKey, 'd'.repeat(32));
+  assert.throws(() => readConfig({ ...env, STT_PROVIDER: 'deepgram' }), /DEEPGRAM_API_KEY/);
+  assert.throws(() => readConfig({ ...env, STT_PROVIDER: 'deepgram', OPENAI_API_KEY: undefined, DEEPGRAM_API_KEY: 'd'.repeat(32) }), /OPENAI_API_KEY/);
+});
+
+test('invalid provider/model and missing OpenAI or selected speech credentials fail closed', () => {
+  assert.throws(() => readConfig({ ...env, STT_PROVIDER: 'automatic' }), /STT_PROVIDER/);
+  assert.throws(() => readConfig({ ...env, OPENAI_STT_MODEL: 'gpt-live-transcribe' }), /OPENAI_STT_MODEL/);
+  assert.throws(() => readConfig({ ...env, OPENAI_STT_MODEL: 'https://other.test' }), /OPENAI_STT_MODEL/);
+  assert.throws(() => readConfig({ ...env, OPENAI_TEXT_MODEL: 'https://other.test' }), /OPENAI_TEXT_MODEL/);
+  assert.throws(() => readConfig({ ...env, OPENAI_API_KEY: undefined, DEEPGRAM_API_KEY: 'd'.repeat(32) }), /OPENAI_API_KEY/);
+});
