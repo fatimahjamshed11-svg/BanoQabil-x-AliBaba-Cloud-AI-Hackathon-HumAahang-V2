@@ -1,4 +1,4 @@
-import { Pressable, Text, SafeAreaView, Ionicons } from '../src/localized-ui';
+﻿import { Pressable, Text, SafeAreaView, Ionicons } from '../src/localized-ui';
 
 import * as Speech from 'expo-speech';
 import { useFocusEffect } from 'expo-router';
@@ -12,6 +12,7 @@ import { getEmergencyCopy } from '../src/emergency-copy';
 import { EmergencyButton } from '../src/emergency-ui';
 import { router } from '../src/navigation';
 import { emergencyCallTarget, type CallKind } from '../src/profile-data';
+import { createElevenLabsWebPlayback } from '../src/elevenlabs-web-playback';
 import { createPhrasePlayback, idlePlayback } from '../src/quick-speak-model';
 import { RecordingStatus } from '../src/recording-status';
 import { useApp } from '../src/store';
@@ -21,12 +22,12 @@ type Mode = CallKind | 'lost';
 const icons = { medical: 'medical-outline', police: 'shield-checkmark-outline', family: 'call-outline', lost: 'compass-outline' } as const;
 
 export default function Emergency() {
-  const app = useApp(), copy = getEmergencyCopy(app.language), rtl = app.language === 'اردو';
+  const app = useApp(), copy = getEmergencyCopy(app.language), rtl = app.language === 'Ø§Ø±Ø¯Ùˆ';
   const [mode, setMode] = useState<Mode | null>(null), [playback, setPlayback] = useState(idlePlayback), [call, setCall] = useState(idleCall);
   const player = useRef<ReturnType<typeof createPhrasePlayback> | null>(null), phone = useRef<ReturnType<typeof createEmergencyCall> | null>(null);
   const scroll = useRef<ScrollView>(null);
   useEffect(() => {
-    const voice = createPhrasePlayback(Speech, setPlayback);
+    const voice = createPhrasePlayback(Platform.OS === 'web' ? (createElevenLabsWebPlayback() ?? Speech) : Speech, setPlayback);
     const dialer = createEmergencyCall(url => Linking.openURL(url), setCall);
     player.current = voice; phone.current = dialer;
     void Speech.getAvailableVoicesAsync().catch(() => {});
@@ -44,7 +45,8 @@ export default function Emergency() {
   };
   const messageFor = (copy: ReturnType<typeof getEmergencyCopy>) => mode === 'lost' ? copy.lostMessage : mode === 'medical' ? copy.medicalMessage : mode === 'police' ? copy.policeMessage : mode === 'family' ? copy.familyMessage : app.passport.instructions || copy.hints[app.persona];
   const message = messageFor(copy);
-  const spokenMessage = messageFor(getEmergencyCopy(app.language === 'Roman Urdu' ? 'اردو' : app.language));
+  const spokenMessage = messageFor(getEmergencyCopy(app.language === 'Roman Urdu' ? 'Ø§Ø±Ø¯Ùˆ' : app.language));
+  const speechLanguage = app.language === 'English' ? 'en' : app.language === 'Roman Urdu' ? 'roman' : 'ur';
   useEffect(() => { player.current?.stop(); phone.current?.cancel(); }, [app.language]);
   const target = mode && mode !== 'lost' && app.ready && !app.storageError ? emergencyCallTarget(mode, app) : null;
   const opening = call.phase === 'opening';
@@ -60,7 +62,7 @@ export default function Emergency() {
         <View style={s.messageCard}>
           <Text style={s.eyebrow}>{copy.communication}</Text>
           <Text verbatim selectable style={s.message}>{message}</Text>
-          {playback.phase === 'idle' ? <EmergencyButton label={copy.speak} secondary onPress={() => { void player.current?.speak(message, spokenMessage); }}/> : <RecordingStatus title={playback.phase === 'preparing' ? copy.preparing : copy.speaking} active={playback.phase === 'speaking'} detail={copy.communication} action="stop" actionLabel={rtl ? 'بند کریں' : 'Stop'} accessibilityLabel={copy.stop} onAction={() => player.current?.stop()}/>}
+          {playback.phase === 'idle' ? <EmergencyButton label={copy.speak} secondary onPress={() => { void player.current?.speak(message, spokenMessage, speechLanguage); }}/> : <RecordingStatus title={playback.phase === 'preparing' ? copy.preparing : copy.speaking} active={playback.phase === 'speaking'} detail={copy.communication} action="stop" actionLabel={rtl ? 'Ø¨Ù†Ø¯ Ú©Ø±ÛŒÚº' : 'Stop'} accessibilityLabel={copy.stop} onAction={() => player.current?.stop()}/>}
           {playback.error ? <Text accessibilityRole="alert" style={s.error}>{copy.voiceFailed}</Text> : null}
         </View>
 
