@@ -56,6 +56,8 @@ export function readConfig(env = process.env) {
   if (elevenlabsSttModel !== 'scribe_v2_realtime') throw new Error('Invalid ELEVENLABS_STT_MODEL.');
   const elevenlabsTtsModel = env.ELEVENLABS_TTS_MODEL ?? 'eleven_v4';
   if (!/^[a-z0-9_.-]{1,80}$/u.test(elevenlabsTtsModel)) throw new Error('Invalid ELEVENLABS_TTS_MODEL.');
+  const elevenlabsVoiceId = env.ELEVENLABS_TTS_VOICE_ID ?? 'GnmcdQ5D9NktfEwK2h3j';
+  if (!/^[A-Za-z0-9_-]{10,100}$/u.test(elevenlabsVoiceId)) throw new Error('Invalid ELEVENLABS_TTS_VOICE_ID.');
   const judgeAccessKey = env.JUDGE_ACCESS_KEY || undefined;
   const judgeDeadline = env.JUDGE_ACCESS_EXPIRES_AT || undefined;
   let judgeAccessExpiresAt;
@@ -75,8 +77,8 @@ export function readConfig(env = process.env) {
   return { port, origins, deployment, localDemoMode, host: isPublic ? '0.0.0.0' : '127.0.0.1',
     publicUrl: publicEndpoint?.origin, publicHost: publicEndpoint?.host, webRoot,
     clientToken: env.STT_CLIENT_TOKEN, sttProvider, openaiSttModel, deepgramKey: env.DEEPGRAM_API_KEY,
-    elevenlabsKey: env.ELEVENLABS_API_KEY, elevenlabsSttModel, elevenlabsTtsModel,
-    openaiTextModel, conversionTimeoutMs: 12000,
+    elevenlabsKey: env.ELEVENLABS_API_KEY, elevenlabsSttModel, elevenlabsTtsModel, elevenlabsVoiceId,
+    openaiTextModel, conversionTimeoutMs: 12000, ttsTimeoutMs: 15000,
     openaiKey, openaiVisionModel, pslSignCatalog, visionTimeoutMs: 25000, judgeAccessKey, judgeAccessExpiresAt };
 }
 

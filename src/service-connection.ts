@@ -12,6 +12,7 @@ export function resolveServiceBaseUrl(
   const local = location && (location.hostname === 'localhost' || location.hostname.endsWith('.localhost') ||
     location.hostname === '::1' || location.hostname === '[::1]' || /^127\./.test(location.hostname));
   if (location?.protocol === 'https:' && !local) return location.origin;
+  if (local && location?.origin && !/:(?:8081)$/u.test(location.origin)) return location.origin;
   return 'http://127.0.0.1:8787';
 }
 

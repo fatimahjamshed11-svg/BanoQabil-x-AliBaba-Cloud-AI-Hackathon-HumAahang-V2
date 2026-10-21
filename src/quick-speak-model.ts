@@ -14,7 +14,7 @@ export function phrasesFor(category: PhraseCategory) {
   return quickPhrases.filter(phrase => category === 'Favorites' ? phrase.favorite : phrase.categories.includes(category));
 }
 type VoiceCallbacks = { onStart(): void; onDone(): void; onStopped(): void; onError(error?: unknown): void };
-type PlaybackEngine = { stop(): Promise<void>; speak(text: string, options: VoiceCallbacks & { language: string }): void };
+export type PlaybackEngine = { stop(): Promise<void>; speak(text: string, options: VoiceCallbacks & { language: string }): void };
 export type PlaybackState = { phase: 'idle' | 'preparing' | 'speaking'; text: string; error: string };
 export const idlePlayback: PlaybackState = { phase: 'idle', text: '', error: '' };
 export function speechTextForLanguage(displayText: string, spokenText: string, language: 'en' | 'ur' | 'roman') {

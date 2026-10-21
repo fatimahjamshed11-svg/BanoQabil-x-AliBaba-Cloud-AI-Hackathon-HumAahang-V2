@@ -5,6 +5,7 @@ import { validateAudio } from './config.mjs';
 import { createConverter, createBilingualProcessor, connectDeepgram } from './providers.mjs';
 import { connectOpenAI } from './openai-stt.mjs';
 import { connectElevenLabs } from './elevenlabs-stt.mjs';
+import { synthesizeElevenLabs, validateTtsInput, MAX_TTS_TEXT } from './elevenlabs-tts.mjs';
 import { runStream } from './stream.mjs';
 import { createClientAccess } from './client-access.mjs';
 import { createStaticWebHandler } from './static-web.mjs';
@@ -29,6 +30,7 @@ export function createSpeechServer(config, dependencies = {}) {
   const processBilingual = dependencies.processBilingual ?? createBilingualProcessor(config);
   const analyzeVision = dependencies.analyzeVision ?? createVisionAnalyzer(config, dependencies.visionFetch);
   const translateVision = dependencies.translateVision ?? createVisionTranslator(config, dependencies.visionFetch);
+  const synthesizeTts = dependencies.synthesizeTts ?? ((input, signal) => synthesizeElevenLabs(config, input, dependencies.ttsFetch, signal));
   const visionRequests = new Set();
   const access = createClientAccess({ now: dependencies.now ?? Date.now,
     judge: config.deployment === 'public' && config.judgeAccessKey ? {
@@ -62,7 +64,7 @@ export function createSpeechServer(config, dependencies = {}) {
     }
     if (req.method === 'GET' && req.url === '/health') { reply(res, 200, { status: 'ok', service: 'humahang-stt', version: 1 }); return; }
     if (serveStaticWeb && await serveStaticWeb(req, res)) return;
-    if (!['/v1/demo/clients', '/v1/local/demo/clients', '/v1/stt/sessions', '/v1/stt/clients', '/v1/stt/pairing-codes', '/v1/vision/analyze', '/v1/vision/translate'].includes(req.url)) { reply(res, 404, { code: 'not_found' }); return; }
+    if (!['/v1/demo/clients', '/v1/local/demo/clients', '/v1/stt/sessions', '/v1/stt/clients', '/v1/stt/pairing-codes', '/v1/vision/analyze', '/v1/vision/translate', '/v1/tts'].includes(req.url)) { reply(res, 404, { code: 'not_found' }); return; }
     if (req.url === '/v1/demo/clients' && !access.judgeAvailable(req.headers.origin)) {
       reply(res, 404, { code: 'judge_unavailable' }); return;
     }
@@ -81,9 +83,10 @@ export function createSpeechServer(config, dependencies = {}) {
     if (++requests > 30 || closing) { reply(res, 429, { code: 'rate_limited' }); return; }
     const operator = timingSafeEqual(digest(req.headers.authorization ?? ''), authDigest);
     if (req.url === '/v1/stt/pairing-codes' && !operator) { reply(res, 401, { code: 'unauthorized' }); return; }
+    const isTts = req.url === '/v1/tts';
     const isTranslation = req.url === '/v1/vision/translate';
     const isVision = req.url === '/v1/vision/analyze' || isTranslation;
-    if ((req.url === '/v1/stt/sessions' || isVision) && !operator && !access.authorize(req.headers.authorization, req.headers.origin)) {
+    if ((req.url === '/v1/stt/sessions' || isVision || isTts) && !operator && !access.authorize(req.headers.authorization, req.headers.origin)) {
       reply(res, 401, { code: 'unauthorized' }); return;
     }
     if (isVision && ++visionCount > (config.visionRequestsPerMinute ?? 12)) { reply(res, 429, { code: 'rate_limited' }); return; }
@@ -93,7 +96,7 @@ export function createSpeechServer(config, dependencies = {}) {
       const chunks = []; let size = 0;
       for await (const chunk of req) {
         size += chunk.length;
-        const limit = isTranslation ? MAX_VISION_TRANSLATION_BODY_BYTES : isVision ? MAX_VISION_BODY_BYTES : 1024;
+        const limit = isTranslation ? MAX_VISION_TRANSLATION_BODY_BYTES : isVision ? MAX_VISION_BODY_BYTES : isTts ? MAX_TTS_TEXT + 256 : 1024;
         if (size > limit) { reply(res, 413, { code: 'body_too_large' }); return; }
         chunks.push(chunk);
       }
@@ -118,6 +121,26 @@ export function createSpeechServer(config, dependencies = {}) {
           reply(res, 200, isTranslation ? validateVisionTranslationResult(result, input) :
             validateVisionResult(result, input, config.pslSignCatalog?.map(sign => sign.id) ?? []));
         } finally { res.removeListener('close', abort); visionRequests.delete(controller); }
+        return;
+      }
+      if (isTts) {
+        if (!validateTtsInput(body)) { reply(res, 400, { code: 'invalid_request' }); return; }
+        if (closing) { reply(res, 503, { code: 'provider_unavailable' }); return; }
+        if (!operator && !access.authorize(req.headers.authorization, req.headers.origin)) { reply(res, 401, { code: 'unauthorized' }); return; }
+        if (!operator && !access.reserve(req.headers.authorization, req.headers.origin, 'speech')) {
+          reply(res, 429, { code: 'judge_limit' }); return;
+        }
+        const controller = new AbortController();
+        const abort = () => { if (!res.writableEnded) controller.abort(); };
+        res.once('close', abort);
+        try {
+          const result = await synthesizeTts(body, controller.signal);
+          if (res.destroyed) return;
+          res.writeHead(200, { 'Content-Type': result.contentType, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+          res.end(result.audio);
+        } catch (error) {
+          if (!res.destroyed) reply(res, error.code === 'invalid_message' ? 400 : 502, { code: error.code === 'invalid_message' ? 'invalid_request' : 'provider_unavailable' });
+        } finally { res.removeListener('close', abort); }
         return;
       }
       if (req.url === '/v1/demo/clients') {

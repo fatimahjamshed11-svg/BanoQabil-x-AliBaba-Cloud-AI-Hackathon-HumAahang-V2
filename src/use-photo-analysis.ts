@@ -7,6 +7,7 @@ import { serviceBaseUrl, serviceCredentials } from './service-connection';
 import { ensureServiceConnection } from './service-bootstrap';
 import { createVisionClient, getPslResultPresentation, idleVision, type VisionLanguage, type VisionPhoto, type VisionTask } from './vision-client';
 import { createPhrasePlayback, idlePlayback, speechTextForLanguage } from './quick-speak-model';
+import { createElevenLabsWebPlayback } from './elevenlabs-web-playback';
 
 export function usePhotoAnalysis() {
   const [state, setState] = useState(idleVision), [playback, setPlayback] = useState(idlePlayback);
@@ -16,7 +17,7 @@ export function usePhotoAnalysis() {
   useEffect(() => {
     const analysis = createVisionClient({ baseUrl: serviceBaseUrl, credentials: serviceCredentials,
       fetcher: createCaptionTransport(Platform.OS !== 'web').fetcher, onState: setState });
-    const speech = createPhrasePlayback(Speech, setPlayback);
+    const speech = createPhrasePlayback(Platform.OS === 'web' ? (createElevenLabsWebPlayback() ?? Speech) : Speech, setPlayback);
     client.current = analysis; player.current = speech;
     void ensureServiceConnection();
     void Speech.getAvailableVoicesAsync().catch(() => {});

@@ -4,12 +4,13 @@ import * as Speech from 'expo-speech';
 import { useFocusEffect } from 'expo-router';
 import { router } from '../src/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, ScrollView, StyleSheet, View } from 'react-native';
+import { AppState, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import { translate } from '../src/locale';
 import { Header } from '../src/components';
 import { RecordingStatus } from '../src/recording-status';
 import { createPhrasePlayback, idlePlayback, phraseCategories, phrasesFor, type PhraseCategory } from '../src/quick-speak-model';
+import { createElevenLabsWebPlayback } from '../src/elevenlabs-web-playback';
 import { colors, radius, space } from '../src/theme';
 
 export default function QuickSpeak() {
@@ -20,7 +21,7 @@ export default function QuickSpeak() {
   const [custom, setCustom] = useState('');
   const player = useRef<ReturnType<typeof createPhrasePlayback> | null>(null);
   useEffect(() => {
-    const controller = createPhrasePlayback(Speech, setPlayback);
+    const controller = createPhrasePlayback(Platform.OS === 'web' ? (createElevenLabsWebPlayback() ?? Speech) : Speech, setPlayback);
     player.current = controller;
     // Initialize the lazy native TTS engine before the first tap; never play silent filler.
     void Speech.getAvailableVoicesAsync().catch(() => {});
